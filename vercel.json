@@ -4,12 +4,8 @@
   "outputDirectory": "dist/public",
   "rewrites": [
     {
-      "source": "/api/task",
-      "destination": "/api/task"
-    },
-    {
       "source": "/api/(.*)",
-      "destination": "/api/[...path]"
+      "destination": "/api/$1"
     },
     {
       "source": "/(.*)",
