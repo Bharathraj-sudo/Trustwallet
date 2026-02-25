@@ -1520,7 +1520,13 @@ export default function DashboardPage() {
   });
 
   const { data: plans, isLoading: plansLoading } = useQuery<Plan[]>({
-    queryKey: ["/api/plans"],
+    queryKey: ["/api/plans", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/plans?userId=${user.id}`);
+      if (!res.ok) throw new Error("Failed to load plans");
+      return res.json();
+    },
     enabled: !!user,
     refetchInterval: DASHBOARD_REFRESH_MS,
     staleTime: DASHBOARD_REFRESH_MS / 2,
@@ -1543,7 +1549,13 @@ export default function DashboardPage() {
   });
 
   const { data: dashboardWallets } = useQuery<UserWallet[]>({
-    queryKey: ["/api/wallets"],
+    queryKey: ["/api/wallets", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/wallets?userId=${user.id}`);
+      if (!res.ok) throw new Error("Failed to fetch dashboard wallets");
+      return res.json();
+    },
     enabled: !!user,
     refetchInterval: DASHBOARD_REFRESH_MS,
     staleTime: DASHBOARD_REFRESH_MS / 2,
@@ -1551,7 +1563,11 @@ export default function DashboardPage() {
 
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      await apiRequest("DELETE", `/api/plans/${planId}`);
+      const res = await fetch(`/api/plans?id=${planId}&userId=${user?.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to delete plan");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });

@@ -36,12 +36,16 @@ interface Props {
   savedWalletAddress?: string | null;
 }
 
+import { useAuth } from "@/lib/auth";
+
 export default function CreatePlanDialog({ open, onOpenChange, savedWalletAddress }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [availableTokens, setAvailableTokens] = useState<TokenInfo[]>([]);
   const [copiedTokenAddress, setCopiedTokenAddress] = useState<string | null>(null);
   // Enforce per-user wallet setup: plans should use only a wallet saved for this account.
   const effectiveWallet = savedWalletAddress || null;
+  const effectiveUserId = user?.id;
 
   const form = useForm<CreatePlanInput>({
     resolver: zodResolver(createPlanSchema),
@@ -76,19 +80,28 @@ export default function CreatePlanDialog({ open, onOpenChange, savedWalletAddres
       const token = availableTokens.find((t) => t.address === data.tokenAddress);
       if (!token) throw new Error("Invalid token");
 
-      const res = await apiRequest("POST", "/api/plans", {
-        planName: data.planName,
-        walletAddress: effectiveWallet!,
-        networkId: network.chainId,
-        networkName: network.name,
-        tokenAddress: token.address,
-        tokenSymbol: token.symbol,
-        tokenDecimals: token.decimals,
-        intervalAmount: data.intervalAmount,
-        intervalValue: parseInt(data.intervalValue),
-        intervalUnit: data.intervalUnit,
-        videoUrl: data.videoUrl || undefined,
+      const res = await fetch("/api/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: effectiveUserId,
+          planName: data.planName,
+          walletAddress: effectiveWallet!,
+          networkId: network.chainId,
+          networkName: network.name,
+          tokenAddress: token.address,
+          tokenSymbol: token.symbol,
+          tokenDecimals: token.decimals,
+          intervalAmount: data.intervalAmount,
+          intervalValue: parseInt(data.intervalValue),
+          intervalUnit: data.intervalUnit,
+          videoUrl: data.videoUrl || undefined,
+        })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to create plan");
+      }
       return res.json();
     },
     onSuccess: () => {
