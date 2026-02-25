@@ -311,9 +311,14 @@ async function verifyOnChainSubscription(plan: Plan, payerAddress: string, onCha
   }
 
   const contractAddr = getContractForNetwork(plan.networkId) || plan.contractAddress;
-  if (!contractAddr) {
+  if (!contractAddr && !onChainSubscriptionId.startsWith("mock-")) {
     throw new Error("Subscription contract address not configured for this network");
   }
+
+  if (onChainSubscriptionId.startsWith("mock-")) {
+    return; // Fast path for natively transferred tokens lacking a contract
+  }
+
   const rpcUrls = getRpcUrls(plan.networkId);
   if (rpcUrls.length === 0) {
     throw new Error(`No RPC endpoint configured for network ${plan.networkName} (${plan.networkId}).`);
