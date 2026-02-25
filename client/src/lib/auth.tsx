@@ -19,10 +19,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
+      const stored = localStorage.getItem("crypto_user");
+      if (stored) {
+        setUser(JSON.parse(stored));
       } else {
         setUser(null);
       }
@@ -47,7 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.ok) throw new Error(data.message || "Login failed");
 
     queryClient.clear();
-    setUser(data.user || data);
+    const userData = data.user || data;
+    localStorage.setItem("crypto_user", JSON.stringify(userData));
+    setUser(userData);
   };
 
   const register = async (username: string, password: string, confirmPassword?: string) => {
@@ -60,13 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.ok) throw new Error(data.message || "Registration failed");
 
     queryClient.clear();
-    setUser(data.user || data);
+    const userData = data.user || data;
+    localStorage.setItem("crypto_user", JSON.stringify(userData));
+    setUser(userData);
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem("crypto_user");
     queryClient.clear();
     setUser(null);
+    window.location.href = "/login";
   };
 
   return (

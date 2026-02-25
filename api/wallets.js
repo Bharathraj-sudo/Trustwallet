@@ -14,7 +14,11 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'POST') {
-            const { userId, address, label, networkId, networkName } = req.body;
+            let body = req.body;
+            if (typeof body === 'string') {
+                try { body = JSON.parse(body); } catch (e) { }
+            }
+            const { userId, address, label, networkId, networkName } = body || {};
             if (!userId || !address) return res.status(400).json({ message: 'userId and address are required' });
 
             const existing = await query('SELECT id FROM wallets WHERE user_id = $1', [userId]);
