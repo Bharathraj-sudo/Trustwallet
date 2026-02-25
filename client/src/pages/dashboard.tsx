@@ -1638,9 +1638,14 @@ export default function DashboardPage() {
       setNetwork(net);
       refreshBalance(address);
 
-      await apiRequest("POST", "/api/auth/wallet", {
-        walletAddress: address,
-        walletNetwork: `${net.name} (${getWalletChoiceLabel(selectedChoice)})`,
+      await fetch("/api/auth/wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id,
+          walletAddress: address,
+          walletNetwork: `${net.name} (${getWalletChoiceLabel(selectedChoice)})`,
+        }),
       });
 
       toast({ title: "Wallet connected", description: `${getWalletChoiceLabel(selectedChoice)} connected` });
@@ -1661,17 +1666,27 @@ export default function DashboardPage() {
       setNetwork(net);
       refreshBalance(address);
 
-      await apiRequest("POST", "/api/wallets", {
-        address,
-        label: getWalletChoiceLabel(selectedChoice),
-        networkId: net.chainId,
-        networkName: net.name,
+      await fetch("/api/wallets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id,
+          address,
+          label: getWalletChoiceLabel(selectedChoice),
+          networkId: net.chainId,
+          networkName: net.name,
+        }),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/wallets"] });
 
-      await apiRequest("POST", "/api/auth/wallet", {
-        walletAddress: address,
-        walletNetwork: `${net.name} (${getWalletChoiceLabel(selectedChoice)})`,
+      await fetch("/api/auth/wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id,
+          walletAddress: address,
+          walletNetwork: `${net.name} (${getWalletChoiceLabel(selectedChoice)})`,
+        }),
       });
 
       toast({
