@@ -330,11 +330,10 @@ function PlanCard({
                   {savedWallets.map((w) => (
                     <button
                       key={w.id}
-                      className={`w-full flex items-center gap-2 p-2 rounded-md text-left text-xs transition-colors ${
-                        newWallet === w.address
+                      className={`w-full flex items-center gap-2 p-2 rounded-md text-left text-xs transition-colors ${newWallet === w.address
                           ? "bg-primary/10 border border-primary/30 ring-1 ring-primary/20"
                           : "bg-muted/50 hover:bg-muted border border-transparent"
-                      }`}
+                        }`}
                       onClick={() => setNewWallet(w.address)}
                       data-testid={`wallet-option-${w.id}`}
                     >
@@ -544,15 +543,14 @@ function OverviewSection({
               {transactions.slice(0, 5).map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between gap-3 p-2.5 rounded-md bg-muted/50" data-testid={`activity-item-${tx.id}`}>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`p-1.5 rounded-full ${
-                      getStatusTone(tx.status) === "success"
+                    <div className={`p-1.5 rounded-full ${getStatusTone(tx.status) === "success"
                         ? "bg-green-500/10"
                         : getStatusTone(tx.status) === "pending"
                           ? "bg-amber-500/10"
                           : getStatusTone(tx.status) === "started"
                             ? "bg-blue-500/10"
                             : "bg-red-500/10"
-                    }`}>
+                      }`}>
                       {getStatusTone(tx.status) === "success" ? (
                         <CheckCircle className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                       ) : getStatusTone(tx.status) === "pending" ? (
@@ -717,54 +715,55 @@ function SubscribersSection() {
                   const liveStatus = latest?.status || "started";
                   const reason = getStatusReason(liveStatus, latest?.errorMessage);
                   return (
-                  <tr key={sub.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-subscriber-${sub.id}`}>
-                    <td className="p-3">
-                      <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(sub.payerAddress)}</code>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{sub.planName}</span>
-                        {sub.tokenSymbol && <Badge variant="outline" className="text-xs">{sub.tokenSymbol}</Badge>}
-                      </div>
-                    </td>
-                    <td className="p-3 font-mono text-xs">{sub.firstPaymentAmount} {sub.tokenSymbol || "ETH"}</td>
-                    <td className="p-3 tabular-nums">{sub.txCount}</td>
-                    <td className="p-3 text-xs whitespace-nowrap">
-                      {sub.nextPaymentDue ? new Date(sub.nextPaymentDue).toLocaleString() : "--"}
-                    </td>
-                    <td className="p-3">
-                      <Badge className={getStatusBadgeClasses(liveStatus)}>
-                        {getLiveStatusLabel(liveStatus)}
-                      </Badge>
-                    </td>
-                    <td className="p-3 max-w-[280px]">
-                      <p className="text-xs text-muted-foreground truncate" title={reason}>{reason}</p>
-                    </td>
-                    <td className="p-3">
-                      {sub.isActive ? (
-                        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/10">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Active
+                    <tr key={sub.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-subscriber-${sub.id}`}>
+                      <td className="p-3">
+                        <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(sub.payerAddress)}</code>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{sub.planName}</span>
+                          {sub.tokenSymbol && <Badge variant="outline" className="text-xs">{sub.tokenSymbol}</Badge>}
+                        </div>
+                      </td>
+                      <td className="p-3 font-mono text-xs">{sub.firstPaymentAmount} {sub.tokenSymbol || "ETH"}</td>
+                      <td className="p-3 tabular-nums">{sub.txCount}</td>
+                      <td className="p-3 text-xs whitespace-nowrap">
+                        {sub.nextPaymentDue ? new Date(sub.nextPaymentDue).toLocaleString() : "--"}
+                      </td>
+                      <td className="p-3">
+                        <Badge className={getStatusBadgeClasses(liveStatus)}>
+                          {getLiveStatusLabel(liveStatus)}
                         </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-muted-foreground">
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Inactive
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      {sub.onChainSubscriptionId ? (
-                        <Badge variant="outline" className="text-xs">
-                          <Zap className="w-3 h-3 mr-1" />
-                          #{sub.onChainSubscriptionId}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">--</span>
-                      )}
-                    </td>
-                  </tr>
-                )})}
+                      </td>
+                      <td className="p-3 max-w-[280px]">
+                        <p className="text-xs text-muted-foreground truncate" title={reason}>{reason}</p>
+                      </td>
+                      <td className="p-3">
+                        {sub.isActive ? (
+                          <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/10">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-muted-foreground">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Inactive
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        {sub.onChainSubscriptionId ? (
+                          <Badge variant="outline" className="text-xs">
+                            <Zap className="w-3 h-3 mr-1" />
+                            #{sub.onChainSubscriptionId}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">--</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -984,79 +983,80 @@ function TransactionsSection() {
                 {transactions.map((tx) => {
                   const checked = txCheckResults[tx.id];
                   return (
-                  <tr key={tx.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-transaction-${tx.id}`}>
-                    <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
-                      {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "--"}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{tx.planName}</span>
-                        {tx.tokenSymbol && <Badge variant="outline" className="text-xs">{tx.tokenSymbol}</Badge>}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.payerAddress)}</code>
-                    </td>
-                    <td className="p-3">
-                      <Badge className={getStatusBadgeClasses(tx.status)}>
-                        {getLiveStatusLabel(tx.status)}
-                      </Badge>
-                    </td>
-                    <td className="p-3 min-w-[210px]">
-                      {!tx.txHash ? (
-                        <span className="text-xs text-muted-foreground">--</span>
-                      ) : !tx.networkId ? (
-                        <span className="text-xs text-muted-foreground">Network unknown</span>
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => handleCheckTransaction(tx)}
-                              disabled={checkingTxId === tx.id}
-                            >
-                              {checkingTxId === tx.id ? (
-                                <>
-                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                  Checking
-                                </>
-                              ) : (
-                                "Check"
+                    <tr key={tx.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-transaction-${tx.id}`}>
+                      <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
+                        {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "--"}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{tx.planName}</span>
+                          {tx.tokenSymbol && <Badge variant="outline" className="text-xs">{tx.tokenSymbol}</Badge>}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.payerAddress)}</code>
+                      </td>
+                      <td className="p-3">
+                        <Badge className={getStatusBadgeClasses(tx.status)}>
+                          {getLiveStatusLabel(tx.status)}
+                        </Badge>
+                      </td>
+                      <td className="p-3 min-w-[210px]">
+                        {!tx.txHash ? (
+                          <span className="text-xs text-muted-foreground">--</span>
+                        ) : !tx.networkId ? (
+                          <span className="text-xs text-muted-foreground">Network unknown</span>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => handleCheckTransaction(tx)}
+                                disabled={checkingTxId === tx.id}
+                              >
+                                {checkingTxId === tx.id ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    Checking
+                                  </>
+                                ) : (
+                                  "Check"
+                                )}
+                              </Button>
+                              {checked && (
+                                <Badge className={getTxCheckBadgeClasses(checked.status)}>
+                                  {getTxCheckLabel(checked.status)}
+                                </Badge>
                               )}
-                            </Button>
+                            </div>
                             {checked && (
-                              <Badge className={getTxCheckBadgeClasses(checked.status)}>
-                                {getTxCheckLabel(checked.status)}
-                              </Badge>
+                              <p className="text-[11px] text-muted-foreground truncate" title={checked.message || ""}>
+                                {checked.confirmations !== undefined
+                                  ? `${checked.confirmations} confirmations`
+                                  : (checked.message || "Checked")}
+                              </p>
                             )}
                           </div>
-                          {checked && (
-                            <p className="text-[11px] text-muted-foreground truncate" title={checked.message || ""}>
-                              {checked.confirmations !== undefined
-                                ? `${checked.confirmations} confirmations`
-                                : (checked.message || "Checked")}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3 max-w-[280px]">
-                      <p className="text-xs text-muted-foreground truncate" title={getStatusReason(tx.status, tx.errorMessage)}>
-                        {getStatusReason(tx.status, tx.errorMessage)}
-                      </p>
-                    </td>
-                    <td className="p-3">
-                      {tx.txHash ? (
-                        <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.txHash)}</code>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">--</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-xs tabular-nums text-muted-foreground">{tx.gasUsed || "--"}</td>
-                  </tr>
-                )})}
+                        )}
+                      </td>
+                      <td className="p-3 max-w-[280px]">
+                        <p className="text-xs text-muted-foreground truncate" title={getStatusReason(tx.status, tx.errorMessage)}>
+                          {getStatusReason(tx.status, tx.errorMessage)}
+                        </p>
+                      </td>
+                      <td className="p-3">
+                        {tx.txHash ? (
+                          <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.txHash)}</code>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">--</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-xs tabular-nums text-muted-foreground">{tx.gasUsed || "--"}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -1134,11 +1134,18 @@ function SettingsSection({
 
   const addWalletMutation = useMutation({
     mutationFn: async ({ address, label }: { address: string; label: string }) => {
-      const res = await apiRequest("POST", "/api/wallets", { address, label });
-      return res.json();
+      const res = await fetch("/api/wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id, walletAddress: address })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to add wallet");
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/wallets"] });
+      toast({ title: "Success", description: data.message || "Wallet added successfully" });
       setNewWalletAddress("");
       setNewWalletLabel("");
     },
@@ -1694,9 +1701,8 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen border-r bg-card/80 backdrop-blur-sm flex flex-col transition-all duration-200 ${
-        mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-      } ${sidebarCollapsed ? "w-16" : "w-60"}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen border-r bg-card/80 backdrop-blur-sm flex flex-col transition-all duration-200 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } ${sidebarCollapsed ? "w-16" : "w-60"}`}>
         <div className={`p-4 border-b flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"} gap-2`}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">
@@ -1719,11 +1725,10 @@ export default function DashboardPage() {
               <button
                 key={item.key}
                 onClick={() => { setActiveSection(item.key); setMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-                  isActive
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${isActive
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                } ${sidebarCollapsed ? "justify-center" : ""}`}
+                  } ${sidebarCollapsed ? "justify-center" : ""}`}
                 data-testid={`nav-${item.key}`}
                 title={sidebarCollapsed ? item.label : undefined}
               >
