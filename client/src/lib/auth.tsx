@@ -38,24 +38,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUser]);
 
   const login = async (username: string, password: string) => {
-    const res = await apiRequest("POST", "/api/login", { username, password });
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
     const data = await res.json();
-    // Prevent cross-account stale cache when switching users in the same browser.
+    if (!res.ok) throw new Error(data.message || "Login failed");
+
     queryClient.clear();
-    setUser(data);
+    setUser(data.user || data);
   };
 
   const register = async (username: string, password: string, confirmPassword?: string) => {
-    const res = await apiRequest("POST", "/api/register", { username, password, confirmPassword });
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, confirmPassword }),
+    });
     const data = await res.json();
-    // New account should start with a clean cache.
+    if (!res.ok) throw new Error(data.message || "Registration failed");
+
     queryClient.clear();
-    setUser(data);
+    setUser(data.user || data);
   };
 
   const logout = async () => {
-    await apiRequest("POST", "/api/auth/logout");
-    // Clear cached user-scoped data to avoid leaking previous account state.
+    await fetch("/api/auth/logout", { method: "POST" });
     queryClient.clear();
     setUser(null);
   };
