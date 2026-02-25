@@ -26,6 +26,13 @@ export default function ScanPage() {
 
         const onScanSuccess = (decodedText: string) => {
             try {
+                // Determine if this is a web/deep-link URL that we should route to natively vs a payload
+                if (decodedText.startsWith("http") || decodedText.startsWith("trust") || decodedText.startsWith("metamask")) {
+                    scanner.clear();
+                    window.location.href = decodedText;
+                    return;
+                }
+
                 console.log("QR_SCANNED");
                 const parsed = parseQRData(decodedText);
                 setTxData(parsed);
