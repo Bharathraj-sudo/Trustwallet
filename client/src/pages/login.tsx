@@ -50,7 +50,7 @@ export default function LoginPage() {
   const onRegister = async (data: RegisterInput) => {
     setIsLoading(true);
     try {
-      await register(data.username, data.password);
+      await register(data.username, data.password, data.confirmPassword);
       navigate("/dashboard");
     } catch (e: any) {
       toast({ title: "Registration failed", description: e.message, variant: "destructive" });
