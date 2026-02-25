@@ -10,8 +10,11 @@ import DashboardPage from "@/pages/dashboard";
 import OpenPayPage from "@/pages/open-pay";
 import PayPage from "@/pages/pay";
 import NotFound from "@/pages/not-found";
-import QRScanner from "@/components/QRScanner";
-import ConfirmTransaction from "@/pages/ConfirmTransaction";
+import ScanPage from "@/pages/ScanPage";
+import ConfirmPage from "@/pages/ConfirmPage";
+import ProcessingPage from "@/pages/ProcessingPage";
+import SuccessPage from "@/pages/SuccessPage";
+import FailedPage from "@/pages/FailedPage";
 
 function Router() {
   return (
@@ -19,8 +22,11 @@ function Router() {
       <Route path="/" component={LoginPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/dashboard" component={DashboardPage} />
-      <Route path="/scan" component={QRScanner} />
-      <Route path="/confirm" component={ConfirmTransaction} />
+      <Route path="/tx/scan" component={ScanPage} />
+      <Route path="/tx/confirm" component={ConfirmPage} />
+      <Route path="/tx/processing" component={ProcessingPage} />
+      <Route path="/tx/success" component={SuccessPage} />
+      <Route path="/tx/failed" component={FailedPage} />
       <Route path="/open/pay/:code" component={OpenPayPage} />
       <Route path="/pay/:code" component={PayPage} />
       <Route component={NotFound} />
@@ -28,14 +34,18 @@ function Router() {
   );
 }
 
+import { TransactionProvider } from "@/context/TransactionContext";
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
           <WalletProvider>
-            <Toaster />
-            <Router />
+            <TransactionProvider>
+              <Toaster />
+              <Router />
+            </TransactionProvider>
           </WalletProvider>
         </AuthProvider>
       </TooltipProvider>

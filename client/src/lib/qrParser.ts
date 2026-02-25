@@ -1,42 +1,40 @@
-export function parseQRData(qrString) {
+export function parseQRData(qrString: string) {
     try {
-        console.log("Attempting to parse QR:", qrString);
-
-        // Try direct exact JSON Payload matching user rules (amount, tokenSymbol, network, receiverAddress)
+        // Direct JSON Payload
         if (qrString.startsWith("{")) {
             const data = JSON.parse(qrString);
-            if (!data.receiverWalletAddress || !data.tokenSymbol || !data.amount || !data.network) {
+            if (!data.receiverAddress || !data.token || !data.amount || !data.network) {
                 throw new Error("Missing required QR fields");
             }
             return {
-                receiverWalletAddress: data.receiverWalletAddress,
-                tokenSymbol: data.tokenSymbol,
+                receiverAddress: data.receiverAddress,
+                token: data.token,
                 amount: String(data.amount),
                 network: data.network,
+                memo: data.memo || "",
             };
         }
 
-        // Standard ERC-681 Fallback parsing (ethereum URI format implementation)
+        // Standard ERC-681 Fallback
         if (qrString.startsWith("ethereum:")) {
             const parts = qrString.replace("ethereum:", "").split("?");
             const mainPart = parts[0];
             const qs = parts[1] || "";
             const searchParams = new URLSearchParams(qs);
 
-            // Strip potential address prefixes like "pay-"
-            const address = mainPart.split("@")[0].replace("pay-", "");
+            const address = mainPart.split("@")[0].replace("pay-", "").replace("ethereum:", "");
 
             return {
-                receiverWalletAddress: address,
-                tokenSymbol: searchParams.get("tokenSymbol") || "ETH",
+                receiverAddress: address,
+                token: searchParams.get("tokenSymbol") || searchParams.get("token") || "ETH",
                 amount: searchParams.get("amount") || searchParams.get("value") || "0",
-                network: searchParams.get("network") || "ethereum"
+                network: searchParams.get("network") || "ethereum",
+                memo: searchParams.get("memo") || ""
             };
         }
 
         throw new Error("Unrecognized format");
-    } catch (error) {
-        console.error("QR Parse Error encountered:", error);
-        throw new Error("Invalid QR Data format. Please scan a valid payment code.");
+    } catch (error: any) {
+        throw new Error(error.message || "Invalid QR Data format.");
     }
 }
