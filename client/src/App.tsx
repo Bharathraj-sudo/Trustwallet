@@ -10,6 +10,8 @@ import DashboardPage from "@/pages/dashboard";
 import OpenPayPage from "@/pages/open-pay";
 import PayPage from "@/pages/pay";
 import NotFound from "@/pages/not-found";
+import QRScanner from "@/components/QRScanner";
+import ConfirmTransaction from "@/pages/ConfirmTransaction";
 
 function Router() {
   return (
@@ -17,6 +19,8 @@ function Router() {
       <Route path="/" component={LoginPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/dashboard" component={DashboardPage} />
+      <Route path="/scan" component={QRScanner} />
+      <Route path="/confirm" component={ConfirmTransaction} />
       <Route path="/open/pay/:code" component={OpenPayPage} />
       <Route path="/pay/:code" component={PayPage} />
       <Route component={NotFound} />
