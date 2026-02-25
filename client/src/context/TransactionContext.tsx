@@ -10,7 +10,8 @@ interface TxData {
     memo?: string;
 }
 
-type TxState = "idle" | "scanned" | "confirming" | "sending" | "success" | "failed";
+// Transaction state machine: idle → ready → confirming → sending → success → failed
+type TxState = "idle" | "ready" | "confirming" | "sending" | "success" | "failed";
 
 interface TransactionContextType {
     state: TxState;
@@ -40,15 +41,15 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             console.log("TX_SENT");
             setLocation("/tx/processing");
 
-            // Replace with actual provider sendTransaction in real prod
+            // Wrap async function in try/catch mapping
             const response: any = await dummySendTransaction(txData);
 
-            console.log("TX_SUCCESS");
+            console.log("TX_SUCCESS", response.hash);
             setTxHash(response.hash);
             setState("success");
             setLocation("/tx/success");
         } catch (err: any) {
-            console.log("TX_FAILED");
+            console.error("TX_FAILED", err);
             setError(err.message || "Transaction failed");
             setState("failed");
             setLocation("/tx/failed");

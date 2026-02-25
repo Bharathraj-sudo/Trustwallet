@@ -9,7 +9,7 @@ export default function ProcessingPage() {
 
     useEffect(() => {
         if (!txData || state !== "sending") {
-            setLocation("/tx/scan");
+            setLocation("/tx/send");
         }
     }, [txData, state, setLocation]);
 

@@ -1,57 +1,67 @@
 export function parseQRData(qrString: string) {
     try {
+        console.log("Parsing QR Code/Address:", qrString);
         let receiverAddress = "";
         let token = "ETH";
         let amount = "0";
         let network = "ethereum";
-        let memo = "";
 
-        // Direct JSON Payload
-        if (qrString.startsWith("{")) {
-            const data = JSON.parse(qrString);
-            receiverAddress = data.receiverAddress || data.address || "";
-            token = data.token || data.tokenSymbol || "ETH";
-            amount = String(data.amount || "0");
-            network = data.network || "ethereum";
-            memo = data.memo || "";
+        // Handle raw string payloads directly
+        let processString = qrString.trim();
+
+        // 1. Direct JSON Payload test
+        if (processString.startsWith("{")) {
+            try {
+                const data = JSON.parse(processString);
+                receiverAddress = data.receiverAddress || data.address || "";
+                token = data.token || data.tokenSymbol || "ETH";
+                amount = String(data.amount || "0");
+                network = data.network || "ethereum";
+            } catch (e) {
+                // Ignore json error, fallback
+            }
         }
-        // Standard ERC-681 Fallback
-        else if (qrString.startsWith("ethereum:")) {
-            const parts = qrString.replace("ethereum:", "").split("?");
+        // 2. Standard ERC-681 / Protocol Specific Fallback
+        else if (processString.includes(":")) {
+            // e.g. ethereum:0xABC...?amount=0.5
+            // e.g. pay-ethereum:0x...
+            const protocolSplit = processString.split(":");
+            processString = protocolSplit.slice(1).join(":"); // take everything after the first colon
+
+            const parts = processString.split("?");
             const mainPart = parts[0];
             const qs = parts[1] || "";
             const searchParams = new URLSearchParams(qs);
 
-            receiverAddress = mainPart.split("@")[0].replace("pay-", "").replace("ethereum:", "");
+            receiverAddress = mainPart.split("@")[0].replace("pay-", "");
             token = searchParams.get("tokenSymbol") || searchParams.get("token") || "ETH";
             amount = searchParams.get("amount") || searchParams.get("value") || "0";
             network = searchParams.get("network") || "ethereum";
-            memo = searchParams.get("memo") || "";
         }
-        // Bare Address Backup
+        // 3. Raw Ethereum Address Backup
         else {
-            receiverAddress = qrString.trim();
+            receiverAddress = processString;
         }
 
-        // Extremely robust regex check for an EVM address anywhere if previous extraction is bad
+        // 4. Validate and Sanitize final extraction
         const ethAddressRegex = /0x[a-fA-F0-9]{40}/;
         if (!receiverAddress || !ethAddressRegex.test(receiverAddress)) {
-            // Find an address inside the raw string just in case
+            // Find an address inside the raw string if the extraction completely missed
             const match = qrString.match(ethAddressRegex);
             if (match) {
                 receiverAddress = match[0];
             } else {
-                // Exact error handling the user specifically encounters / expects regarding validation
-                throw new Error("QR code dons't contain vaild adress");
+                throw new Error("QR code doesn't contain a valid Ethereum address");
             }
         }
+
+        console.log("ADDRESS_PARSED", receiverAddress);
 
         return {
             receiverAddress,
             token,
-            amount: amount,
-            network: network,
-            memo: memo,
+            amount,
+            network
         };
     } catch (error: any) {
         throw new Error(error.message || "Invalid QR Data format.");

@@ -11,7 +11,7 @@ export default function ConfirmPage() {
 
     useEffect(() => {
         if (!txData) {
-            setLocation("/tx/scan");
+            setLocation("/tx/send");
         } else {
             setState("confirming");
         }
@@ -62,7 +62,7 @@ export default function ConfirmPage() {
                     </div>
                 </CardContent>
                 <CardFooter className="flex gap-3 pb-6">
-                    <Button variant="outline" className="flex-1" onClick={() => setLocation("/tx/scan")}>
+                    <Button variant="outline" className="flex-1" onClick={() => setLocation("/tx/send")}>
                         Cancel
                     </Button>
                     <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleConfirm}>

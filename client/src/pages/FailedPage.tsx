@@ -23,7 +23,7 @@ export default function FailedPage() {
     };
 
     const handleCancel = () => {
-        setLocation("/tx/scan");
+        setLocation("/tx/send");
     };
 
     return (
