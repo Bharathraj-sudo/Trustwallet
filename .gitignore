@@ -15,3 +15,6 @@ neondb_full_*.sql
 
 # Local Netlify folder
 .netlify
+
+.vercel
+.env*.local
