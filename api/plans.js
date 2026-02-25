@@ -3,7 +3,20 @@ import { query } from '../lib/db.js';
 export default async function handler(req, res) {
     try {
         if (req.method === 'GET') {
-            const { userId } = req.query;
+            const { userId, code } = req.query;
+
+            // Handle fetching a specific plan publicly by its unique code
+            if (code) {
+                const planRes = await query(
+                    `SELECT id, user_id as "userId", plan_name as "planName", wallet_address as "walletAddress", network_id as "networkId", network_name as "networkName", token_address as "tokenAddress", token_symbol as "tokenSymbol", token_decimals as "tokenDecimals", interval_amount as "intervalAmount", interval_value as "intervalValue", interval_unit as "intervalUnit", plan_code as "planCode", recurring_amount as "recurringAmount", contract_address as "contractAddress", video_url as "videoUrl", created_at as "createdAt" FROM plans WHERE plan_code = $1`,
+                    [code]
+                );
+                if (planRes.rows.length === 0) {
+                    return res.status(404).json({ message: 'Plan not found' });
+                }
+                return res.status(200).json(planRes.rows[0]);
+            }
+
             if (!userId) {
                 return res.status(400).json({ message: 'userId is required' });
             }

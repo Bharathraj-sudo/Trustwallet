@@ -222,7 +222,7 @@ export default function PayPage() {
     : "bg-[linear-gradient(90deg,#66c8ff_0%,#b091ff_45%,#ffd98b_100%)]";
 
   const { data: plan, isLoading, error } = useQuery<Plan>({
-    queryKey: ["/api/plans/code", params.code],
+    queryKey: [`/api/plans?code=${params.code}`],
   });
 
   const quoteTokenSymbol = (plan?.tokenSymbol || "ETH").toUpperCase();
