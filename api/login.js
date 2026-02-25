@@ -1,7 +1,5 @@
-import pg from 'pg';
 import bcrypt from 'bcryptjs';
-
-const { Pool } = pg;
+import { query } from '../lib/db.js';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -15,40 +13,26 @@ export default async function handler(req, res) {
             return res.status(400).json({ message: 'Username and password are required' });
         }
 
-        const databaseUrl = process.env.DATABASE_URL;
-        if (!databaseUrl) {
-            return res.status(500).json({ message: 'DATABASE_URL environment variable is not set' });
+        const userResult = await query('SELECT id, username, password FROM users WHERE username = $1', [username]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        const pool = new Pool({
-            connectionString: databaseUrl,
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+        const user = userResult.rows[0];
+
+        const valid = await bcrypt.compare(password, user.password);
+        if (!valid) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            user: {
+                id: user.id,
+                username: user.username,
+            }
         });
-
-        try {
-            const userResult = await pool.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
-            if (userResult.rows.length === 0) {
-                return res.status(401).json({ message: 'Invalid credentials' });
-            }
-
-            const user = userResult.rows[0];
-
-            const valid = await bcrypt.compare(password, user.password);
-            if (!valid) {
-                return res.status(401).json({ message: 'Invalid credentials' });
-            }
-
-            return res.status(200).json({
-                success: true,
-                message: 'Login successful',
-                user: {
-                    id: user.id,
-                    username: user.username,
-                }
-            });
-        } finally {
-            await pool.end();
-        }
     } catch (error) {
         console.error('Login error:', error);
         return res.status(500).json({
