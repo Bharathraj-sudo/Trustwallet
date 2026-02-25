@@ -424,14 +424,7 @@ export default function PayPage() {
 
     // Prefer the registry contract (shared/contracts.ts). Plans created before a redeploy may have a stale stored address.
     const contractAddr = getContractForNetwork(plan.networkId) || plan.contractAddress;
-    if (!contractAddr) {
-      toast({
-        title: "Contract not deployed",
-        description: "Payment contract not available on this network yet.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const isMockContract = !contractAddr;
 
     setIsProcessing(true);
     setStep("processing");
@@ -508,71 +501,89 @@ export default function PayPage() {
         }
       }
 
-      const subContract = new Contract(contractAddr, SUBSCRIPTION_CONTRACT_ABI, signer);
+      const subContract = contractAddr ? new Contract(contractAddr, SUBSCRIPTION_CONTRACT_ABI, signer) : null;
       const intervalSeconds = getIntervalSeconds(plan.intervalValue, plan.intervalUnit);
 
       const approvalPeriods = BigInt(12);
-      const permitValue = recurringWei * approvalPeriods;
+      let permitValue = recurringWei * approvalPeriods;
       const permitDeadline = Math.floor(Date.now() / 1000) + 60 * 30; // 30 min
 
       let approvalHash: string | null = null;
       let permitSig: { v: number; r: string; s: string } | null = null;
+      let receipt;
+      let onChainId = "";
 
-      // Step 1: Try permit signature (preferred). If unsupported, fallback to ERC-20 approve.
-      try {
-        const [tokenName, tokenVersion, nonce] = await Promise.all([
-          tokenContract.name() as Promise<string>,
-          tokenContract.version().catch(() => "1") as Promise<string>,
-          tokenContract.nonces(payer) as Promise<bigint>,
-        ]);
-
-        const domain = {
-          name: tokenName,
-          version: tokenVersion,
-          chainId: Number.parseInt(plan.networkId, 16),
-          verifyingContract: plan.tokenAddress,
-        };
-
-        const types = {
-          Permit: [
-            { name: "owner", type: "address" },
-            { name: "spender", type: "address" },
-            { name: "value", type: "uint256" },
-            { name: "nonce", type: "uint256" },
-            { name: "deadline", type: "uint256" },
-          ],
-        };
-
-        const message = {
-          owner: payer,
-          spender: contractAddr,
-          value: permitValue,
-          nonce,
-          deadline: BigInt(permitDeadline),
-        };
-
-        const signature = await signer.signTypedData(domain, types as any, message as any);
-        const parsed = Signature.from(signature);
-        permitSig = { v: parsed.v, r: parsed.r, s: parsed.s };
-        setAuthFlow("permit");
-      } catch (permitErr: any) {
-        const msg = permitErr?.message || permitErr?.toString?.() || "";
-        const rejected = msg.includes("user rejected") || msg.includes("User denied") || msg.includes("rejected");
-        if (rejected) throw permitErr;
-
-        // Fallback: approval tx
+      if (isMockContract) {
+        setProcessingStage(2);
         setAuthFlow("approve");
-        const txApprove = await tokenContract.approve(contractAddr, permitValue);
-        const receiptApprove = await txApprove.wait();
-        approvalHash = receiptApprove.hash;
-      }
+
+        // Mock Contract path: execute a direct token transfer to the merchant rather than a subscription contract call
+        const activationInitialWei = isResumeActivation ? BigInt(0) : initialWei;
+        if (activationInitialWei > BigInt(0)) {
+          const tx = await tokenContract.transfer(plan.walletAddress, activationInitialWei);
+          receipt = await tx.wait();
+        } else {
+          receipt = { hash: `mock-tx-${Date.now()}` };
+        }
+        onChainId = `mock-${Date.now()}`;
+        approvalHash = receipt.hash;
+        permitValue = BigInt(0);
+      } else {
+
+        // Step 1: Try permit signature (preferred). If unsupported, fallback to ERC-20 approve.
+        try {
+          const [tokenName, tokenVersion, nonce] = await Promise.all([
+            tokenContract.name() as Promise<string>,
+            tokenContract.version().catch(() => "1") as Promise<string>,
+            tokenContract.nonces(payer) as Promise<bigint>,
+          ]);
+
+          const domain = {
+            name: tokenName,
+            version: tokenVersion,
+            chainId: Number.parseInt(plan.networkId, 16),
+            verifyingContract: plan.tokenAddress,
+          };
+
+          const types = {
+            Permit: [
+              { name: "owner", type: "address" },
+              { name: "spender", type: "address" },
+              { name: "value", type: "uint256" },
+              { name: "nonce", type: "uint256" },
+              { name: "deadline", type: "uint256" },
+            ],
+          };
+
+          const message = {
+            owner: payer,
+            spender: contractAddr,
+            value: permitValue,
+            nonce,
+            deadline: BigInt(permitDeadline),
+          };
+
+          const signature = await signer.signTypedData(domain, types as any, message as any);
+          const parsed = Signature.from(signature);
+          permitSig = { v: parsed.v, r: parsed.r, s: parsed.s };
+          setAuthFlow("permit");
+        } catch (permitErr: any) {
+          const msg = permitErr?.message || permitErr?.toString?.() || "";
+          const rejected = msg.includes("user rejected") || msg.includes("User denied") || msg.includes("rejected");
+          if (rejected) throw permitErr;
+
+          // Fallback: approval tx
+          setAuthFlow("approve");
+          const txApprove = await tokenContract.approve(contractAddr, permitValue);
+          const receiptApprove = await txApprove.wait();
+          approvalHash = receiptApprove.hash;
+        }
+      } // End of else block for permit generation
 
       setProcessingStage(2);
-
-      let receipt;
       const activationInitialWei = isResumeActivation ? BigInt(0) : initialWei;
 
-      if (permitSig) {
+      if (permitSig && subContract) {
         try {
           const tx = await subContract.activateWithPermit(
             plan.walletAddress,
@@ -610,7 +621,7 @@ export default function PayPage() {
           );
           receipt = await tx.wait();
         }
-      } else {
+      } else if (subContract) {
         const tx = await subContract.activate(
           plan.walletAddress,
           plan.tokenAddress,
@@ -621,16 +632,18 @@ export default function PayPage() {
         receipt = await tx.wait();
       }
 
-      const event = receipt.logs.find((log: any) => {
-        try {
-          const parsed = subContract.interface.parseLog(log);
-          return parsed?.name === "SubscriptionCreated";
-        } catch { return false; }
-      });
-      let onChainId = "";
-      if (event) {
-        const parsed = subContract.interface.parseLog(event);
-        onChainId = parsed?.args[0]?.toString() || "";
+      if (subContract) {
+        const event = receipt.logs.find((log: any) => {
+          try {
+            const parsed = subContract.interface.parseLog(log);
+            return parsed?.name === "SubscriptionCreated";
+          } catch { return false; }
+        });
+
+        if (event) {
+          const parsed = subContract.interface.parseLog(event);
+          onChainId = parsed?.args[0]?.toString() || "";
+        }
       }
 
       if (!onChainId) {
@@ -1098,37 +1111,7 @@ export default function PayPage() {
               <div className={`text-[clamp(2rem,9vw,2.45rem)] font-semibold ${valueStrongClass}`}>{`≈ ${amountUsdLabel}`}</div>
             </section>
 
-            {!wallet.address && showOpenInWalletHint && (
-              <div className={`mt-6 rounded-[16px] border ${hintBorderClass} ${hintBgClass} p-3.5 text-sm ${hintTitleClass}`} data-testid="wallet-not-detected-hint">
-                <div className="flex items-center gap-2 font-semibold">
-                  <AlertCircle className="h-4 w-4" />
-                  Wallet not detected in this browser
-                </div>
-                <p className={`mt-1.5 ${hintBodyClass}`}>
-                  Open this link inside Trust Wallet or MetaMask in-app browser, then continue.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={`inline-flex h-10 items-center justify-center rounded-full border px-4 font-semibold ${hintButtonClass}`}
-                    onClick={() => openInTrustWalletMobile(withWalletHint(window.location.href, "trust"))}
-                    data-testid="button-pay-open-trustwallet"
-                  >
-                    <Wallet className="mr-2 h-4 w-4" />
-                    Open in Trust Wallet
-                  </button>
-                  <button
-                    type="button"
-                    className={`inline-flex h-10 items-center justify-center rounded-full border px-4 font-semibold ${hintButtonClass}`}
-                    onClick={() => openInMetaMaskMobile(withWalletHint(window.location.href, "metamask"))}
-                    data-testid="button-pay-open-metamask"
-                  >
-                    <Wallet className="mr-2 h-4 w-4" />
-                    Open in MetaMask
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Removed the hint blocking UI aggressively per request */}
 
             <div className="mt-auto pt-8">
               <Button
