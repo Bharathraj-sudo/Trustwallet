@@ -1101,7 +1101,13 @@ function SettingsSection({
   });
 
   const { data: userWallets, isLoading: walletsLoading } = useQuery<UserWallet[]>({
-    queryKey: ["/api/wallets"],
+    queryKey: ["/api/wallets", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/wallets?userId=${user.id}`);
+      if (!res.ok) throw new Error("Failed to fetch wallets");
+      return res.json();
+    },
     enabled: !!user,
     refetchInterval: DASHBOARD_REFRESH_MS,
     staleTime: DASHBOARD_REFRESH_MS / 2,
@@ -1134,17 +1140,17 @@ function SettingsSection({
 
   const addWalletMutation = useMutation({
     mutationFn: async ({ address, label }: { address: string; label: string }) => {
-      const res = await fetch("/api/payment-wallets", {
+      const res = await fetch("/api/wallets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, walletAddress: address, label })
+        body: JSON.stringify({ userId: user?.id, address, label })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add wallet");
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallets", user?.id] });
       toast({ title: "Success", description: data.message || "Wallet added successfully" });
       setNewWalletAddress("");
       setNewWalletLabel("");
@@ -1156,20 +1162,22 @@ function SettingsSection({
 
   const removeWalletMutation = useMutation({
     mutationFn: async (walletId: string) => {
-      await apiRequest("DELETE", `/api/wallets/${walletId}`);
+      const res = await fetch(`/api/wallets?id=${walletId}&userId=${user?.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove wallet");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallets", user?.id] });
     },
   });
 
   const setDefaultMutation = useMutation({
     mutationFn: async (walletId: string) => {
-      const res = await apiRequest("PATCH", `/api/wallets/${walletId}/default`);
+      const res = await fetch(`/api/wallets?id=${walletId}&userId=${user?.id}&action=default`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Failed to set default wallet");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallets", user?.id] });
     },
   });
 
