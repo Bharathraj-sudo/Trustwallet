@@ -10,6 +10,7 @@ import { Contract, parseUnits, formatUnits, Signature } from "ethers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PaymentLoader } from "@/components/payment-loader";
+import { ProcessingScreen } from "@/components/ProcessingScreen";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertCircle,
@@ -26,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { SiEthereum } from "react-icons/si";
+import { TransactionDetailView } from "@/components/TransactionDetailView";
 
 const TESTNET_CHAIN_IDS = ["0xaa36a7", "0x5"];
 
@@ -179,10 +181,11 @@ export default function PayPage() {
   const wallet = useWallet();
 
   const [firstPaymentAmount, setFirstPaymentAmount] = useState("");
+  const [processingStage, setProcessingStage] = useState<number>(1);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [step, setStep] = useState<"first-payment" | "processing">("first-payment");
-  const [processingStage, setProcessingStage] = useState<1 | 2>(1);
+  const [step, setStep] = useState<"first-payment" | "processing" | "receipt">("first-payment");
   const [authFlow, setAuthFlow] = useState<"permit" | "approve">("permit");
   const [tokenBalance, setTokenBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -430,6 +433,7 @@ export default function PayPage() {
     setStep("processing");
     setProcessingStage(1);
     setAuthFlow("permit");
+    setLastTxHash(null);
 
     try {
       let payer = wallet.address;
@@ -521,6 +525,7 @@ export default function PayPage() {
         const activationInitialWei = isResumeActivation ? BigInt(0) : initialWei;
         if (activationInitialWei > BigInt(0)) {
           const tx = await tokenContract.transfer(plan.walletAddress, activationInitialWei);
+          setLastTxHash(tx.hash);
           receipt = await tx.wait();
         } else {
           receipt = { hash: `mock-tx-${Date.now()}` };
@@ -575,6 +580,7 @@ export default function PayPage() {
           // Fallback: approval tx
           setAuthFlow("approve");
           const txApprove = await tokenContract.approve(contractAddr, permitValue);
+          setLastTxHash(txApprove.hash);
           const receiptApprove = await txApprove.wait();
           approvalHash = receiptApprove.hash;
         }
@@ -597,6 +603,7 @@ export default function PayPage() {
             permitSig.r,
             permitSig.s
           );
+          setLastTxHash(tx.hash);
           receipt = await tx.wait();
         } catch (permitActivateErr: any) {
           const msg = permitActivateErr?.message || permitActivateErr?.toString?.() || "";
@@ -608,6 +615,7 @@ export default function PayPage() {
           setAuthFlow("approve");
           setProcessingStage(1);
           const txApprove = await tokenContract.approve(contractAddr, permitValue);
+          setLastTxHash(txApprove.hash);
           const receiptApprove = await txApprove.wait();
           approvalHash = receiptApprove.hash;
 
@@ -619,6 +627,7 @@ export default function PayPage() {
             recurringWei,
             intervalSeconds
           );
+          setLastTxHash(tx.hash);
           receipt = await tx.wait();
         }
       } else if (subContract) {
@@ -629,6 +638,7 @@ export default function PayPage() {
           recurringWei,
           intervalSeconds
         );
+        setLastTxHash(tx.hash);
         receipt = await tx.wait();
       }
 
@@ -657,8 +667,9 @@ export default function PayPage() {
           onChainSubscriptionId: onChainId,
         }).then((r) => r.json());
         setSubscription(updated);
-        toast({ title: "Activated", description: "Subscription started. Redirecting to wallet app..." });
-        openWalletAppAfterActivation();
+        setLastTxHash(receipt.hash);
+        setStep("receipt");
+        toast({ title: "Activated", description: "Subscription started successfully." });
         return;
       }
 
@@ -675,8 +686,9 @@ export default function PayPage() {
       const payload = await res.json();
       const created = payload?.subscription ?? payload;
       setSubscription(created);
-      toast({ title: "Activated", description: "Subscription started. Redirecting to wallet app..." });
-      openWalletAppAfterActivation();
+      setLastTxHash(receipt.hash);
+      setStep("receipt");
+      toast({ title: "Activated", description: "Subscription started successfully." });
     } catch (e: any) {
       const friendly = getFriendlyError(e, plan.tokenSymbol || "tokens", plan.networkName, plan.networkId);
       const stageLabels = { 1: authFlow === "permit" ? "Permit failed" : "Approval failed", 2: "Activation failed" };
@@ -836,24 +848,6 @@ export default function PayPage() {
             </div>
           </div>
 
-          {step === "processing" && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-transparent px-6 text-center pointer-events-none">
-              <div>
-                <PaymentLoader className="mx-auto" />
-                <p className="mt-4 text-lg font-semibold text-[#101521]">
-                  {processingStage === 1 && (authFlow === "permit" ? "Loading..." : "Approving token")}
-                  {/* {processingStage === 2 && "Activating subscription"} */}
-                </p>
-                <p className="mt-2 text-sm text-[#6c7487]">
-                  {processingStage === 1
-                    ? authFlow === "permit"
-                      ? "Sign in your wallet to continue."
-                      : "Approve token spending in your wallet."
-                    : "Confirm transaction in your wallet."}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -978,24 +972,6 @@ export default function PayPage() {
             </div>
           </div>
 
-          {step === "processing" && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-transparent px-6 text-center pointer-events-none">
-              <div>
-                <PaymentLoader className="mx-auto" />
-                <p className="mt-4 text-lg font-semibold text-[#101521]">
-                  {processingStage === 1 && (authFlow === "permit" ? "" : "Approving token")}
-                  {/* {processingStage === 2 && "Activating subscription"} */}
-                </p>
-                <p className="mt-2 text-sm text-[#6c7487]">
-                  {processingStage === 1
-                    ? authFlow === "permit"
-                      ? "Sign in your wallet to continue."
-                      : "Approve token spending in your wallet."
-                    : "Confirm transaction in your wallet."}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -1224,22 +1200,42 @@ export default function PayPage() {
         )}
 
         {step === "processing" && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-transparent px-6 text-center pointer-events-none">
-            <div>
-              <PaymentLoader className="mx-auto" />
-              <p className={`mt-4 text-lg font-semibold ${valueStrongClass}`}>
-                {processingStage === 1 && (authFlow === "permit" ? "Loading..." : "Approving token")}
-                {/* {processingStage === 2 && "Activating subscription"} */}
-              </p>
-              <p className={`mt-2 text-sm ${valueMutedClass}`}>
-                {processingStage === 1
-                  ? authFlow === "permit"
-                    ? "Sign in your wallet to continue."
-                    : "Approve token spending in your wallet."
-                  : "Confirm transaction in your wallet."}
-              </p>
-            </div>
-          </div>
+          <ProcessingScreen
+            onClose={() => setStep("first-payment")}
+            onViewDetails={() => {
+              if (lastTxHash) {
+                const explorerUrl = plan.networkId === "11155111"
+                  ? `https://sepolia.etherscan.io/tx/${lastTxHash}`
+                  : plan.networkId === "1"
+                    ? `https://etherscan.io/tx/${lastTxHash}`
+                    : `https://blockscan.com/tx/${lastTxHash}`;
+                window.open(explorerUrl, "_blank");
+              }
+            }}
+          />
+        )}
+        {step === "receipt" && plan && (
+          <TransactionDetailView
+            amount={amountPreview}
+            tokenSymbol={tokenSymbol}
+            usdValue={amountUsdLabel}
+            recipientAddress={plan.walletAddress}
+            date={new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+            status="Pending"
+            networkFee={networkFeeToken}
+            networkFeeUsd={networkFeeUsd !== null ? `$${networkFeeUsd.toFixed(2)}` : undefined}
+            onClose={() => setStep("processing")}
+            onViewOnExplorer={() => {
+              if (lastTxHash) {
+                const explorerUrl = plan.networkId === "11155111"
+                  ? `https://sepolia.etherscan.io/tx/${lastTxHash}`
+                  : plan.networkId === "1"
+                    ? `https://etherscan.io/tx/${lastTxHash}`
+                    : `https://blockscan.com/tx/${lastTxHash}`;
+                window.open(explorerUrl, "_blank");
+              }
+            }}
+          />
         )}
       </div>
     </div>
