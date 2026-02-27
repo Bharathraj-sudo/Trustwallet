@@ -1188,16 +1188,13 @@ export async function registerRoutes(app: Express): Promise<void> {
       return res.status(400).json({ message: "Valid positive amount required" });
     }
     const planId = req.params.id as string;
-    const subs = await storage.getSubscriptionsByPlan(planId);
-    if (subs.length === 0) {
-      return res.status(400).json({ message: "Cannot set recurring amount before any subscriber has made a first payment" });
-    }
     const plan = await storage.updatePlanRecurringAmount(planId, req.session.userId!, recurringAmount);
     if (!plan) {
       return res.status(404).json({ message: "Plan not found" });
     }
     return res.json(plan);
   });
+
 
   app.patch("/api/plans/:id/interval", requireAuth, async (req: Request, res: Response) => {
     const schema = z.object({

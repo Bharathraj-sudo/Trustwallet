@@ -631,27 +631,63 @@ function PlanCard({
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Recurring Amount</span>
             {!editingAmount ? (
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => { setNewAmount(plan.recurringAmount || plan.intervalAmount); setEditingAmount(true); }} data-testid={`button-edit-amount-${plan.id}`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => { setNewAmount(plan.recurringAmount || plan.intervalAmount); setEditingAmount(true); }}
+                data-testid={`button-edit-amount-${plan.id}`}
+              >
                 <Pencil className="w-3 h-3 mr-1" />
                 Set
               </Button>
             ) : (
-              <div className="flex gap-1">
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => amountMutation.mutate(newAmount)} disabled={amountMutation.isPending} data-testid={`button-save-amount-${plan.id}`}>
-                  <Save className="w-3 h-3" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setEditingAmount(false)}>
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setEditingAmount(false)}>
+                <X className="w-3 h-3" />
+              </Button>
             )}
           </div>
-          {editingAmount ? (
-            <Input type="number" step="any" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="h-8 text-xs" placeholder={`Amount in ${tokenSymbol}`} data-testid={`input-amount-${plan.id}`} />
+          {!editingAmount ? (
+            <div className="text-xs text-muted-foreground">
+              {plan.recurringAmount ? `${plan.recurringAmount} ${tokenSymbol} per charge` : "Not set — using default interval amount"}
+            </div>
           ) : (
-            <div className="text-xs text-muted-foreground">{plan.recurringAmount ? `${plan.recurringAmount} ${tokenSymbol}` : "Not set (using default)"}</div>
+            <div className="space-y-2 p-3 rounded-md bg-muted/40 border">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  Amount charged each recurring cycle ({tokenSymbol})
+                </label>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={newAmount}
+                  onChange={(e) => setNewAmount(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder={`e.g. ${plan.intervalAmount}`}
+                  data-testid={`input-amount-${plan.id}`}
+                  autoFocus
+                />
+              </div>
+              {newAmount && Number(newAmount) > 0 && (
+                <div className="p-2 rounded-md bg-primary/5 border border-primary/10 text-xs text-muted-foreground">
+                  Charges <span className="font-semibold text-foreground">{newAmount} {tokenSymbol}</span> {getIntervalLabel(plan.intervalValue, plan.intervalUnit).toLowerCase()}
+                </div>
+              )}
+              <Button
+                size="sm"
+                className="w-full h-8 text-xs"
+                disabled={amountMutation.isPending || !newAmount || Number(newAmount) <= 0}
+                onClick={() => amountMutation.mutate(newAmount)}
+                data-testid={`button-save-amount-${plan.id}`}
+              >
+                <Save className="w-3 h-3 mr-1" />
+                {amountMutation.isPending ? "Saving..." : "Save Amount"}
+              </Button>
+            </div>
           )}
         </div>
+
 
         {editingInterval && (
           <div className="space-y-2 p-3 rounded-md bg-muted/40 border">
