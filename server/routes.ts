@@ -1199,6 +1199,35 @@ export async function registerRoutes(app: Express): Promise<void> {
     return res.json(plan);
   });
 
+  app.patch("/api/plans/:id/interval", requireAuth, async (req: Request, res: Response) => {
+    const schema = z.object({
+      intervalAmount: z.string().trim().refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, "Invalid amount"),
+      intervalValue: z.number().int().positive("Interval must be positive"),
+      intervalUnit: z.enum(PLAN_INTERVAL_UNITS),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const planId = req.params.id as string;
+    const existing = await storage.getPlanById(planId);
+    if (!existing || existing.userId !== req.session.userId) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+    const updated = await storage.updatePlanInterval(
+      planId,
+      req.session.userId!,
+      parsed.data.intervalAmount,
+      parsed.data.intervalValue,
+      parsed.data.intervalUnit,
+    );
+    if (!updated) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+    return res.json(updated);
+  });
+
+
   app.get("/api/plans/code/:code", async (req: Request, res: Response) => {
     const plan = await storage.getPlanByCode(req.params.code as string);
     if (!plan) {

@@ -172,6 +172,234 @@ function getWalletChoiceLabel(choice: ReceiverWalletChoice): string {
   return choice === "trust" ? "Trust Wallet" : "MetaMask";
 }
 
+// ─── Transaction Receipt Panel ──────────────────────────────────────────────
+
+function TransactionReceiptPanel({ tx, onClose }: { tx: EnrichedLog; onClose: () => void }) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const copyHash = async () => {
+    if (!tx.txHash) return;
+    try {
+      await navigator.clipboard.writeText(tx.txHash);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: "Could not copy", variant: "destructive" });
+    }
+  };
+
+  const tone = getStatusTone(tx.status);
+  const borderAccent =
+    tone === "success" ? "border-green-500/30" :
+      tone === "pending" ? "border-amber-500/30" :
+        tone === "started" ? "border-blue-500/30" :
+          "border-red-500/30";
+  const bgAccent =
+    tone === "success" ? "bg-green-500/5" :
+      tone === "pending" ? "bg-amber-500/5" :
+        tone === "started" ? "bg-blue-500/5" :
+          "bg-red-500/5";
+
+  return (
+    <div className={`border rounded-xl ${borderAccent} ${bgAccent} p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200`}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`p-1.5 rounded-full ${tone === "success" ? "bg-green-500/15" :
+            tone === "pending" ? "bg-amber-500/15" :
+              tone === "started" ? "bg-blue-500/15" :
+                "bg-red-500/15"
+            }`}>
+            {tone === "success" ? <CheckCircle className="w-4 h-4 text-green-500" /> :
+              tone === "pending" ? <Clock className="w-4 h-4 text-amber-500" /> :
+                tone === "started" ? <Activity className="w-4 h-4 text-blue-500" /> :
+                  <XCircle className="w-4 h-4 text-red-500" />}
+          </div>
+          <span className="text-sm font-semibold">Recurring Payment Receipt</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {/* Details grid */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
+        <div>
+          <p className="text-muted-foreground mb-0.5">Plan</p>
+          <p className="font-medium">{tx.planName}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Token</p>
+          <p className="font-medium">{tx.tokenSymbol || "ETH"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Payer</p>
+          <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-[11px] break-all">{tx.payerAddress}</code>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Network</p>
+          <p className="font-medium">{tx.networkName || tx.networkId || "--"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Status</p>
+          <Badge className={getStatusBadgeClasses(tx.status)}>{getLiveStatusLabel(tx.status)}</Badge>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Date</p>
+          <p className="font-medium">{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "--"}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-muted-foreground mb-0.5">Reason / Message</p>
+          <p className="text-muted-foreground text-[11px] leading-relaxed">{getStatusReason(tx.status, tx.errorMessage)}</p>
+        </div>
+        {tx.gasUsed && (
+          <div>
+            <p className="text-muted-foreground mb-0.5">Gas Used</p>
+            <p className="font-mono font-medium">{tx.gasUsed}</p>
+          </div>
+        )}
+        {tx.txHash && (
+          <div className="col-span-2">
+            <p className="text-muted-foreground mb-0.5">Transaction Hash</p>
+            <div className="flex items-center gap-2">
+              <code className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded truncate flex-1">{tx.txHash}</code>
+              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={copyHash}>
+                {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Interval Modal ─────────────────────────────────────────────────────
+
+function EditIntervalModal({
+  planId,
+  planName,
+  initialIntervalAmount,
+  initialIntervalValue,
+  initialIntervalUnit,
+  tokenSymbol,
+  open,
+  onClose,
+}: {
+  planId: string;
+  planName: string;
+  initialIntervalAmount: string;
+  initialIntervalValue: number;
+  initialIntervalUnit: string;
+  tokenSymbol: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState(initialIntervalAmount);
+  const [value, setValue] = useState(String(initialIntervalValue));
+  const [unit, setUnit] = useState(initialIntervalUnit);
+
+  // Reset when opened
+  useEffect(() => {
+    if (open) {
+      setAmount(initialIntervalAmount);
+      setValue(String(initialIntervalValue));
+      setUnit(initialIntervalUnit);
+    }
+  }, [open, initialIntervalAmount, initialIntervalValue, initialIntervalUnit]);
+
+  const mutation = useMutation({
+    mutationFn: async ({ intervalAmount, intervalValue, intervalUnit }: { intervalAmount: string; intervalValue: number; intervalUnit: string }) => {
+      const res = await apiRequest("PATCH", `/api/plans/${planId}/interval`, { intervalAmount, intervalValue, intervalUnit });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
+      toast({ title: "Interval updated", description: `Schedule for "${planName}" has been updated.` });
+      onClose();
+    },
+    onError: (e: Error) => {
+      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const isValid = !!(amount && Number(amount) > 0 && value && Number(value) >= 1);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="w-4 h-4" />
+            Edit Recurring Schedule
+          </DialogTitle>
+          <DialogDescription>Update the recurring amount and schedule for <span className="font-medium">{planName}</span>.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          {/* Amount per interval */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Amount per interval ({tokenSymbol})</label>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={`e.g. 10`}
+              className="h-9"
+            />
+          </div>
+          {/* Every N unit */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Charge every</label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min="1"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="1"
+                className="h-9 w-20 flex-shrink-0"
+              />
+              <select
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="sec">Seconds</option>
+                <option value="min">Minutes</option>
+                <option value="hrs">Hours</option>
+                <option value="days">Days</option>
+                <option value="months">Months</option>
+              </select>
+            </div>
+          </div>
+          {/* Preview */}
+          {isValid && (
+            <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10 text-xs text-muted-foreground">
+              Charges <span className="font-semibold text-foreground">{amount} {tokenSymbol}</span> {getIntervalLabel(Number(value), unit).toLowerCase()}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 pt-2">
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={!isValid || mutation.isPending}
+            onClick={() => mutation.mutate({ intervalAmount: amount, intervalValue: parseInt(value), intervalUnit: unit })}
+          >
+            {mutation.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : <><Save className="w-3.5 h-3.5 mr-1.5" />Save Schedule</>}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PlanCard({
   plan,
   onShowQr,
@@ -186,8 +414,12 @@ function PlanCard({
   const { toast } = useToast();
   const [editingWallet, setEditingWallet] = useState(false);
   const [editingAmount, setEditingAmount] = useState(false);
+  const [editingInterval, setEditingInterval] = useState(false);
   const [newWallet, setNewWallet] = useState(plan.walletAddress);
   const [newAmount, setNewAmount] = useState(plan.recurringAmount || "");
+  const [newIntervalAmount, setNewIntervalAmount] = useState(plan.intervalAmount);
+  const [newIntervalValue, setNewIntervalValue] = useState(String(plan.intervalValue));
+  const [newIntervalUnit, setNewIntervalUnit] = useState(plan.intervalUnit);
 
   const { data: subs } = useQuery<Subscription[]>({
     queryKey: ["/api/plans", plan.id, "subscriptions"],
@@ -232,6 +464,21 @@ function PlanCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
       setEditingAmount(false);
+    },
+    onError: (e: Error) => {
+      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const intervalMutation = useMutation({
+    mutationFn: async ({ intervalAmount, intervalValue, intervalUnit }: { intervalAmount: string; intervalValue: number; intervalUnit: string }) => {
+      const res = await apiRequest("PATCH", `/api/plans/${plan.id}/interval`, { intervalAmount, intervalValue, intervalUnit });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
+      setEditingInterval(false);
+      toast({ title: "Interval updated", description: "Recurring schedule updated for future charges." });
     },
     onError: (e: Error) => {
       toast({ title: "Update failed", description: e.message, variant: "destructive" });
@@ -284,9 +531,21 @@ function PlanCard({
           <span className="text-2xl font-bold tabular-nums">{plan.intervalAmount}</span>
           <span className="text-sm text-muted-foreground">{tokenSymbol}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Clock className="w-3.5 h-3.5" />
-          {getIntervalLabel(plan.intervalValue, plan.intervalUnit)}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            {getIntervalLabel(plan.intervalValue, plan.intervalUnit)}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => { setNewIntervalAmount(plan.intervalAmount); setNewIntervalValue(String(plan.intervalValue)); setNewIntervalUnit(plan.intervalUnit); setEditingInterval(true); }}
+            data-testid={`button-edit-interval-${plan.id}`}
+          >
+            <Pencil className="w-3 h-3 mr-1" />
+            Edit
+          </Button>
         </div>
 
         {isTokenPlan && onChainSubs > 0 && (
@@ -393,6 +652,70 @@ function PlanCard({
             <div className="text-xs text-muted-foreground">{plan.recurringAmount ? `${plan.recurringAmount} ${tokenSymbol}` : "Not set (using default)"}</div>
           )}
         </div>
+
+        {editingInterval && (
+          <div className="space-y-2 p-3 rounded-md bg-muted/40 border">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">Edit Schedule</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setEditingInterval(false)}>
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Amount per interval — how much {tokenSymbol} to charge each cycle</label>
+              <Input
+                type="number"
+                step="any"
+                value={newIntervalAmount}
+                onChange={(e) => setNewIntervalAmount(e.target.value)}
+                className="h-8 text-xs"
+                placeholder={`e.g. 10 ${tokenSymbol}`}
+                data-testid={`input-interval-amount-${plan.id}`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Charge every — interval between each recurring payment</label>
+              <div className="flex gap-1.5">
+                <Input
+                  type="number"
+                  min="1"
+                  value={newIntervalValue}
+                  onChange={(e) => setNewIntervalValue(e.target.value)}
+                  className="h-8 text-xs w-16 flex-shrink-0"
+                  placeholder="1"
+                  data-testid={`input-interval-value-${plan.id}`}
+                />
+                <select
+                  value={newIntervalUnit}
+                  onChange={(e) => setNewIntervalUnit(e.target.value)}
+                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                  data-testid={`select-interval-unit-${plan.id}`}
+                >
+                  <option value="sec">Seconds</option>
+                  <option value="min">Minutes</option>
+                  <option value="hrs">Hours</option>
+                  <option value="days">Days</option>
+                  <option value="months">Months</option>
+                </select>
+              </div>
+            </div>
+            {newIntervalAmount && Number(newIntervalAmount) > 0 && newIntervalValue && Number(newIntervalValue) >= 1 && (
+              <div className="p-2 rounded-md bg-primary/5 border border-primary/10 text-xs text-muted-foreground">
+                Charges <span className="font-semibold text-foreground">{newIntervalAmount} {tokenSymbol}</span> {getIntervalLabel(Number(newIntervalValue), newIntervalUnit).toLowerCase()}
+              </div>
+            )}
+            <Button
+              size="sm"
+              className="w-full h-8 text-xs"
+              disabled={intervalMutation.isPending || !newIntervalAmount || Number(newIntervalAmount) <= 0 || !newIntervalValue || Number(newIntervalValue) < 1}
+              onClick={() => intervalMutation.mutate({ intervalAmount: newIntervalAmount, intervalValue: parseInt(newIntervalValue), intervalUnit: newIntervalUnit })}
+              data-testid={`button-save-interval-${plan.id}`}
+            >
+              <Save className="w-3 h-3 mr-1" />
+              {intervalMutation.isPending ? "Saving..." : "Save Schedule"}
+            </Button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 pt-1">
           <Button variant="outline" size="sm" className="flex-1" onClick={onShowQr} data-testid={`button-show-qr-${plan.id}`}>
@@ -775,6 +1098,8 @@ function SubscribersSection() {
 
 function TransactionsSection() {
   const { toast } = useToast();
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
+  const [editIntervalTx, setEditIntervalTx] = useState<EnrichedLog | null>(null);
   const { data: transactions, isLoading } = useQuery<EnrichedLog[]>({
     queryKey: ["/api/dashboard/transactions"],
     refetchInterval: DASHBOARD_LIVE_REFRESH_MS,
@@ -966,6 +1291,7 @@ function TransactionsSection() {
       ) : (
         <Card>
           <div className="overflow-x-auto">
+            <p className="text-xs text-muted-foreground px-3 py-2 border-b">Click any row to view the full recurring payment receipt. Use <strong>Edit</strong> to modify the plan schedule.</p>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
@@ -977,91 +1303,139 @@ function TransactionsSection() {
                   <th className="text-left p-3 font-medium text-muted-foreground">Reason</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Tx Hash</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Gas</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Schedule</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.map((tx) => {
                   const checked = txCheckResults[tx.id];
+                  const isExpanded = expandedTxId === tx.id;
                   return (
-                    <tr key={tx.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-transaction-${tx.id}`}>
-                      <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "--"}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">{tx.planName}</span>
-                          {tx.tokenSymbol && <Badge variant="outline" className="text-xs">{tx.tokenSymbol}</Badge>}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.payerAddress)}</code>
-                      </td>
-                      <td className="p-3">
-                        <Badge className={getStatusBadgeClasses(tx.status)}>
-                          {getLiveStatusLabel(tx.status)}
-                        </Badge>
-                      </td>
-                      <td className="p-3 min-w-[210px]">
-                        {!tx.txHash ? (
-                          <span className="text-xs text-muted-foreground">--</span>
-                        ) : !tx.networkId ? (
-                          <span className="text-xs text-muted-foreground">Network unknown</span>
-                        ) : (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => handleCheckTransaction(tx)}
-                                disabled={checkingTxId === tx.id}
-                              >
-                                {checkingTxId === tx.id ? (
-                                  <>
-                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                    Checking
-                                  </>
-                                ) : (
-                                  "Check"
+                    <>
+                      <tr
+                        key={tx.id}
+                        className={`border-b transition-colors cursor-pointer ${isExpanded ? "bg-muted/40" : "hover:bg-muted/30"}`}
+                        data-testid={`row-transaction-${tx.id}`}
+                        onClick={() => setExpandedTxId(isExpanded ? null : tx.id)}
+                      >
+                        <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "--"}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{tx.planName}</span>
+                            {tx.tokenSymbol && <Badge variant="outline" className="text-xs">{tx.tokenSymbol}</Badge>}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.payerAddress)}</code>
+                        </td>
+                        <td className="p-3">
+                          <Badge className={getStatusBadgeClasses(tx.status)}>
+                            {getLiveStatusLabel(tx.status)}
+                          </Badge>
+                        </td>
+                        <td className="p-3 min-w-[210px]" onClick={(e) => e.stopPropagation()}>
+                          {!tx.txHash ? (
+                            <span className="text-xs text-muted-foreground">--</span>
+                          ) : !tx.networkId ? (
+                            <span className="text-xs text-muted-foreground">Network unknown</span>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => handleCheckTransaction(tx)}
+                                  disabled={checkingTxId === tx.id}
+                                >
+                                  {checkingTxId === tx.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Checking
+                                    </>
+                                  ) : (
+                                    "Check"
+                                  )}
+                                </Button>
+                                {checked && (
+                                  <Badge className={getTxCheckBadgeClasses(checked.status)}>
+                                    {getTxCheckLabel(checked.status)}
+                                  </Badge>
                                 )}
-                              </Button>
+                              </div>
                               {checked && (
-                                <Badge className={getTxCheckBadgeClasses(checked.status)}>
-                                  {getTxCheckLabel(checked.status)}
-                                </Badge>
+                                <p className="text-[11px] text-muted-foreground truncate" title={checked.message || ""}>
+                                  {checked.confirmations !== undefined
+                                    ? `${checked.confirmations} confirmations`
+                                    : (checked.message || "Checked")}
+                                </p>
                               )}
                             </div>
-                            {checked && (
-                              <p className="text-[11px] text-muted-foreground truncate" title={checked.message || ""}>
-                                {checked.confirmations !== undefined
-                                  ? `${checked.confirmations} confirmations`
-                                  : (checked.message || "Checked")}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-3 max-w-[280px]">
-                        <p className="text-xs text-muted-foreground truncate" title={getStatusReason(tx.status, tx.errorMessage)}>
-                          {getStatusReason(tx.status, tx.errorMessage)}
-                        </p>
-                      </td>
-                      <td className="p-3">
-                        {tx.txHash ? (
-                          <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.txHash)}</code>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">--</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-xs tabular-nums text-muted-foreground">{tx.gasUsed || "--"}</td>
-                    </tr>
-                  )
+                          )}
+                        </td>
+                        <td className="p-3 max-w-[280px]">
+                          <p className="text-xs text-muted-foreground truncate" title={getStatusReason(tx.status, tx.errorMessage)}>
+                            {getStatusReason(tx.status, tx.errorMessage)}
+                          </p>
+                        </td>
+                        <td className="p-3">
+                          {tx.txHash ? (
+                            <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{formatAddress(tx.txHash)}</code>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">--</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs tabular-nums text-muted-foreground">{tx.gasUsed || "--"}</td>
+                        <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs gap-1"
+                            onClick={() => setEditIntervalTx(tx)}
+                            title="Edit recurring schedule for this plan"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </Button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${tx.id}-detail`} className="bg-muted/10">
+                          <td colSpan={9} className="px-4 py-3">
+                            <TransactionReceiptPanel
+                              tx={tx}
+                              onClose={() => setExpandedTxId(null)}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
                 })}
               </tbody>
             </table>
           </div>
         </Card>
       )}
+
+      {/* Edit Interval Modal – opened from a transaction row */}
+      {editIntervalTx && (() => {
+        const planId = (editIntervalTx as any).planId || "";
+        return (
+          <EditIntervalModal
+            planId={planId}
+            planName={editIntervalTx.planName}
+            initialIntervalAmount={(editIntervalTx as any).intervalAmount || "1"}
+            initialIntervalValue={(editIntervalTx as any).intervalValue || 1}
+            initialIntervalUnit={(editIntervalTx as any).intervalUnit || "days"}
+            tokenSymbol={editIntervalTx.tokenSymbol || "ETH"}
+            open={!!editIntervalTx}
+            onClose={() => setEditIntervalTx(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

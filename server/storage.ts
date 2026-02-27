@@ -18,6 +18,7 @@ export interface IStorage {
   deletePlan(id: string, userId: string): Promise<boolean>;
   updatePlanWalletAddress(planId: string, userId: string, walletAddress: string): Promise<Plan | undefined>;
   updatePlanRecurringAmount(planId: string, userId: string, recurringAmount: string): Promise<Plan | undefined>;
+  updatePlanInterval(planId: string, userId: string, intervalAmount: string, intervalValue: number, intervalUnit: string): Promise<Plan | undefined>;
   getSubscriptionsByPlan(planId: string): Promise<Subscription[]>;
   getSubscription(planId: string, payerAddress: string): Promise<Subscription | undefined>;
   getSubscriptionById(id: string): Promise<Subscription | undefined>;
@@ -168,6 +169,17 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(plans)
       .set({ recurringAmount })
+      .where(eq(plans.id, planId))
+      .returning();
+    return updated;
+  }
+
+  async updatePlanInterval(planId: string, userId: string, intervalAmount: string, intervalValue: number, intervalUnit: string): Promise<Plan | undefined> {
+    const plan = await this.getPlanById(planId);
+    if (!plan || plan.userId !== userId) return undefined;
+    const [updated] = await db
+      .update(plans)
+      .set({ intervalAmount, intervalValue, intervalUnit })
       .where(eq(plans.id, planId))
       .returning();
     return updated;
